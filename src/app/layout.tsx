@@ -5,6 +5,10 @@ import { BrandingProvider } from "@/components/BrandingProvider"
 import { Toaster } from "@/components/ui/sonner"
 import { getSettings } from "@/lib/settings"
 
+// Branding lives in the database and changes at setup / in Settings, so the
+// shell must render per-request — never a stale build-time snapshot.
+export const dynamic = "force-dynamic"
+
 export async function generateMetadata(): Promise<Metadata> {
   const s = await getSettings()
   const name = s.businessName || "Sales & Inventory"
