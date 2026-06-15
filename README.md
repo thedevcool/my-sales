@@ -50,8 +50,7 @@ be taken straight to the **setup wizard** to create your store.
 
 ### Try the demo instead
 
-To skip the wizard and load a ready-made demo (a shop called “FadaTech” with
-sample products and staff):
+To skip the wizard and load a ready-made demo store (sample products and staff):
 
 ```bash
 npm run db:seed

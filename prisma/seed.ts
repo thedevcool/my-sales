@@ -14,8 +14,8 @@ async function main() {
     update: { setupComplete: true },
     create: {
       id: "singleton",
-      businessName: "FadaTech",
-      tagline: "Phone Accessories",
+      businessName: "Demo Store",
+      tagline: "Sales & Inventory",
       currencySymbol: "₦",
       accentColor: "indigo",
       setupComplete: true,

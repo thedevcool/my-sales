@@ -36,6 +36,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local sqlite databases (production uses Postgres)
+*.db
+*.db-journal
+/prisma/*.db
+/prisma/*.db-journal
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

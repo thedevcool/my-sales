@@ -14,12 +14,12 @@ describe("Password Hashing", () => {
 });
 
 describe("Data Validation", () => {
-  it("validates SKU format", () => {
-    const pattern = /^FDT\d{3}$/;
-    expect(pattern.test("FDT001")).toBe(true);
-    expect(pattern.test("FDT025")).toBe(true);
-    expect(pattern.test("FDT")).toBe(false);
-    expect(pattern.test("FDT1234")).toBe(false);
+  it("validates auto-generated SKU format (BRAND-001)", () => {
+    const pattern = /^[A-Z0-9]{2,4}-\d{3}$/;
+    expect(pattern.test("ORA-001")).toBe(true);
+    expect(pattern.test("GEN-025")).toBe(true);
+    expect(pattern.test("ORA")).toBe(false);
+    expect(pattern.test("ORA-1")).toBe(false);
   });
 
   it("validates receipt ref format", () => {
@@ -30,8 +30,8 @@ describe("Data Validation", () => {
 
   it("ensures starting price <= suggested price", () => {
     const data = [
-      { sku: "FDT001", start: 1800, suggested: 2200 },
-      { sku: "FDT007", start: 10000, suggested: 12500 },
+      { sku: "ORA-001", start: 1800, suggested: 2200 },
+      { sku: "ITE-001", start: 10000, suggested: 12500 },
     ];
     for (const d of data) {
       expect(d.start).toBeLessThanOrEqual(d.suggested);
