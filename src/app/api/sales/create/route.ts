@@ -50,10 +50,10 @@ export async function POST(request: Request) {
       note: note || undefined,
     })
 
+    // Note: profit is intentionally not returned — reps must not see it.
     return NextResponse.json({
       receiptRef: result.receiptRef,
       total: result.total,
-      profit: result.profit,
       message: "Sale recorded",
     })
   } catch (err) {

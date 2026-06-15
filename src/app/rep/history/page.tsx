@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { formatCurrency, formatDateTime } from "@/lib/utils"
 import { RepHeader } from "@/components/RepHeader"
-import { Receipt, TrendingUp, ShoppingBag } from "lucide-react"
+import { Receipt, ShoppingBag } from "lucide-react"
 
 interface SaleRecord {
   id: string
@@ -15,7 +15,6 @@ interface SaleRecord {
   enteredPrice: number
   discount: number
   totalAmount: number
-  grossProfit: number
   paymentMethod: string
   customer: string | null
 }
@@ -45,7 +44,6 @@ export default function RepHistoryPage() {
   }, [filter])
 
   const totalAmount = sales.reduce((s, x) => s + x.totalAmount, 0)
-  const totalProfit = sales.reduce((s, x) => s + x.grossProfit, 0)
 
   return (
     <div className="min-h-screen">
@@ -55,10 +53,9 @@ export default function RepHistoryPage() {
         <h1 className="text-xl font-bold text-slate-900 mb-4">My Sales</h1>
 
         {/* Summary */}
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-2 gap-3 mb-5">
           <SummaryCard icon={ShoppingBag} label="Sales" value={loading ? "—" : String(sales.length)} />
           <SummaryCard icon={Receipt} label="Revenue" value={loading ? "—" : formatCurrency(totalAmount)} />
-          <SummaryCard icon={TrendingUp} label="Profit" value={loading ? "—" : formatCurrency(totalProfit)} accent />
         </div>
 
         {/* Filters */}
@@ -103,7 +100,6 @@ export default function RepHistoryPage() {
                   </div>
                   <div className="text-right flex-shrink-0 ml-3">
                     <div className="font-bold text-sm text-slate-900">{formatCurrency(s.totalAmount)}</div>
-                    <div className="text-xs text-green-600 font-medium">+{formatCurrency(s.grossProfit)}</div>
                   </div>
                 </div>
                 <div className="flex justify-between items-center text-xs text-slate-500">

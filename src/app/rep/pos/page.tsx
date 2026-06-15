@@ -52,9 +52,8 @@ const PAYMENT_METHODS = ["Cash", "Transfer", "POS"]
 export default function POSPage() {
   const searchRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState("")
-  const [results, setResults] = useState<ProductHit[]>([])
-  const [showResults, setShowResults] = useState(false)
-  const [searching, setSearching] = useState(false)
+  const [products, setProducts] = useState<ProductHit[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
   const [cart, setCart] = useState<CartItem[]>([])
   const [paymentMethod, setPaymentMethod] = useState("Transfer")
   const [customer, setCustomer] = useState("")
@@ -66,31 +65,33 @@ export default function POSPage() {
     searchRef.current?.focus()
   }, [])
 
-  const onSearch = useCallback((value: string) => {
-    setSearch(value)
+  // Load the whole active catalogue once so reps can browse before searching.
+  const loadProducts = useCallback(() => {
+    setLoadingProducts(true)
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((d) => setProducts(Array.isArray(d) ? d : []))
+      .catch(() => setProducts([]))
+      .finally(() => setLoadingProducts(false))
   }, [])
 
-  // Debounced product search
   useEffect(() => {
-    if (search.trim().length < 1) {
-      setResults([])
-      setShowResults(false)
-      return
-    }
-    setSearching(true)
-    const t = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/products?q=${encodeURIComponent(search.trim())}`)
-        setResults(await res.json())
-        setShowResults(true)
-      } catch {
-        setResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 200)
-    return () => clearTimeout(t)
-  }, [search])
+    loadProducts()
+  }, [loadProducts])
+
+  const onSearch = useCallback((value: string) => setSearch(value), [])
+
+  // Browse the full list before searching; the search box just narrows it.
+  const query = search.trim().toLowerCase()
+  const filteredProducts = query
+    ? products.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          p.sku.toLowerCase().includes(query) ||
+          (p.barcode || "").toLowerCase().includes(query) ||
+          (p.productGroup?.name || p.category || "").toLowerCase().includes(query)
+      )
+    : products
 
   function addToCart(v: ProductHit) {
     if (v.currentStock < 1) {
@@ -128,8 +129,6 @@ export default function POSPage() {
       ]
     })
     setSearch("")
-    setResults([])
-    setShowResults(false)
     searchRef.current?.focus()
   }
 
@@ -229,6 +228,7 @@ export default function POSPage() {
       if (!res.ok) throw new Error(data.error || "Sale failed")
       setLastReceipt(data.receiptRef)
       toast.success("Sale completed", { description: `${data.receiptRef} · ${formatCurrency(data.total)}` })
+      loadProducts() // refresh stock counts after the sale
       setTimeout(() => {
         setCart([])
         setCustomer("")
@@ -261,7 +261,7 @@ export default function POSPage() {
 
       <div className="max-w-2xl mx-auto px-4 pt-5 pb-32 sm:pb-8">
         {/* Search */}
-        <div className="relative z-30 animate-fade-in">
+        <div className="relative animate-fade-in">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
           <input
             ref={searchRef}
@@ -269,54 +269,11 @@ export default function POSPage() {
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             placeholder="Search product, scan barcode, or type SKU…"
-            className="input pl-12 h-13 text-base shadow-sm"
+            className="input pl-12 text-base shadow-sm"
             style={{ height: "3.25rem" }}
             autoCapitalize="none"
             autoCorrect="off"
           />
-          {searching && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
-          )}
-
-          {showResults && results.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden z-20 animate-scale-in max-h-[60vh] overflow-y-auto">
-              {results.map((v) => {
-                const out = v.currentStock < 1
-                return (
-                  <button
-                    key={v.id}
-                    onClick={() => addToCart(v)}
-                    disabled={out}
-                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50 border-b border-slate-100 last:border-0 text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="font-medium text-sm text-slate-900 truncate">{v.name}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-400">{v.sku}</span>
-                        <span className={`text-xs font-medium ${v.currentStock <= 5 ? "text-red-500" : "text-slate-500"}`}>
-                          {out ? "Out of stock" : `${v.currentStock} left`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right ml-3 flex-shrink-0">
-                      <div className="font-semibold text-sm text-slate-900">{formatCurrency(v.suggestedPrice)}</div>
-                      <div className="text-xs text-slate-400">from {formatCurrency(v.startingPrice)}</div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
-          {showResults && !searching && search.length > 0 && results.length === 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl p-6 text-center animate-scale-in z-20 shadow-lg">
-              <PackageSearch className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">No products match “{search}”</p>
-              <button onClick={() => setCustomOpen(true)} className="btn btn-secondary btn-sm mt-3">
-                <PackagePlus className="w-4 h-4" /> Sell “{search}” as a new item
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Off-catalogue item */}
@@ -347,7 +304,7 @@ export default function POSPage() {
                 <ShoppingCart className="w-7 h-7 text-slate-300" />
               </div>
               <p className="text-sm font-medium text-slate-600">Your cart is empty</p>
-              <p className="text-xs text-slate-400 mt-1">Search above to add products</p>
+              <p className="text-xs text-slate-400 mt-1">Tap a product below to add it</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -503,6 +460,55 @@ export default function POSPage() {
                   )}
                 </button>
               </div>
+            </div>
+          )}
+        </div>
+        {/* Browse — all products, tap to add */}
+        <div className="mt-5 animate-slide-up">
+          <div className="flex items-center justify-between mb-2.5 px-1">
+            <span className="text-sm font-semibold text-slate-900">{query ? "Search results" : "All products"}</span>
+            <span className="text-xs text-slate-400">
+              {loadingProducts ? "Loading…" : `${filteredProducts.length} item${filteredProducts.length !== 1 ? "s" : ""}`}
+            </span>
+          </div>
+
+          {loadingProducts ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {[1, 2, 3, 4, 5, 6].map((i) => <div key={i} className="skeleton h-[5.5rem] rounded-xl" />)}
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="card text-center py-10 px-4">
+              <PackageSearch className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-sm text-slate-500">{query ? `No products match “${search}”` : "No products in the catalogue yet"}</p>
+              {query && (
+                <button onClick={() => setCustomOpen(true)} className="btn btn-secondary btn-sm mt-3">
+                  <PackagePlus className="w-4 h-4" /> Sell “{search}” as a new item
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {filteredProducts.map((v) => {
+                const out = v.currentStock < 1
+                const low = v.currentStock <= 5
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => addToCart(v)}
+                    disabled={out}
+                    className="text-left card card-hover p-3 transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="font-medium text-sm text-slate-900 line-clamp-2 min-h-[2.5rem]">{v.name}</div>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="font-semibold text-sm text-slate-900">{formatCurrency(v.suggestedPrice)}</span>
+                      <span className={`text-xs font-medium ${out ? "text-red-500" : low ? "text-amber-600" : "text-slate-400"}`}>
+                        {out ? "Out" : `${v.currentStock} left`}
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5 truncate">{v.productGroup?.name || v.category}</div>
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>

@@ -34,7 +34,8 @@ export async function GET(request: Request) {
   }
 
   const role = (session.user as unknown as Record<string, string>).role
-  if (role === "rep") {
+  const isRep = role === "rep"
+  if (isRep) {
     where.userId = session.user.id
   } else if (repId) {
     where.userId = repId
@@ -51,25 +52,27 @@ export async function GET(request: Request) {
   })
 
   return NextResponse.json(
-    sales.map((s) => ({
-      id: s.id,
-      timestamp: s.timestamp,
-      date: s.date,
-      receiptRef: s.receiptRef,
-      productName: s.variant?.name ?? s.customProductName ?? "Custom item",
-      staffName: s.user.name,
-      qty: s.qty,
-      enteredPrice: s.enteredPrice,
-      startingPrice: s.startingPrice,
-      suggestedPrice: s.suggestedPrice,
-      discount: s.discount,
-      totalAmount: s.totalAmount,
-      unitCost: s.unitCost,
-      grossProfit: s.grossProfit,
-      paymentMethod: s.paymentMethod,
-      channel: s.channel,
-      customer: s.customer,
-      note: s.note,
-    }))
+    sales.map((s) => {
+      const base = {
+        id: s.id,
+        timestamp: s.timestamp,
+        date: s.date,
+        receiptRef: s.receiptRef,
+        productName: s.variant?.name ?? s.customProductName ?? "Custom item",
+        staffName: s.user.name,
+        qty: s.qty,
+        enteredPrice: s.enteredPrice,
+        startingPrice: s.startingPrice,
+        suggestedPrice: s.suggestedPrice,
+        discount: s.discount,
+        totalAmount: s.totalAmount,
+        paymentMethod: s.paymentMethod,
+        channel: s.channel,
+        customer: s.customer,
+        note: s.note,
+      }
+      // Cost & profit are admin-only — never sent to a rep.
+      return isRep ? base : { ...base, unitCost: s.unitCost, grossProfit: s.grossProfit }
+    })
   )
 }

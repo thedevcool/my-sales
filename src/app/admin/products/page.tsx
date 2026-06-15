@@ -9,7 +9,7 @@ import { Combobox } from "@/components/ui/Combobox"
 import { RestockModal } from "@/components/RestockModal"
 import { CatalogManagerModal } from "@/components/CatalogManagerModal"
 import { toast } from "@/components/ui/sonner"
-import { Plus, Search, Pencil, PackagePlus, Package, Upload, Download, Tags, ClipboardList } from "lucide-react"
+import { Plus, Search, Pencil, PackagePlus, Package, Upload, Download, Tags, ClipboardList, Trash2 } from "lucide-react"
 import Link from "next/link"
 
 interface ProductVariant {
@@ -63,6 +63,8 @@ export default function AdminProductsPage() {
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<ProductVariant | null>(null)
   const [restockTarget, setRestockTarget] = useState<ProductVariant | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<ProductVariant | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchVariants = useCallback(() => {
     fetch("/api/admin/products")
@@ -110,6 +112,31 @@ export default function AdminProductsPage() {
       toast.error(err instanceof Error ? err.message : "Could not add product")
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch("/api/admin/products", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Could not delete product")
+      if (data.softDeleted) {
+        toast.success(`${deleteTarget.name} has sales history — hidden instead of deleted`)
+      } else {
+        toast.success(`Deleted ${deleteTarget.name}`)
+      }
+      setDeleteTarget(null)
+      fetchVariants(); fetchLists()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete product")
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -194,6 +221,9 @@ export default function AdminProductsPage() {
                   <button onClick={() => setEditTarget(v)} className="btn btn-ghost btn-sm">
                     <Pencil className="w-3.5 h-3.5" /> Edit
                   </button>
+                  <button onClick={() => setDeleteTarget(v)} className="btn btn-ghost btn-sm text-red-500 hover:bg-red-50 ml-auto">
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
                 </div>
               </div>
             )
@@ -250,6 +280,24 @@ export default function AdminProductsPage() {
       <CatalogManagerModal open={catalogOpen} onClose={() => setCatalogOpen(false)} onChanged={fetchLists} />
       <EditProductModal target={editTarget} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); fetchVariants() }} />
       <RestockModal target={restockTarget} onClose={() => setRestockTarget(null)} onSaved={() => { setRestockTarget(null); fetchVariants() }} />
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        title="Delete product?"
+        description={deleteTarget ? `${deleteTarget.name} · ${deleteTarget.sku}` : ""}
+        footer={
+          <>
+            <button onClick={() => setDeleteTarget(null)} disabled={deleting} className="btn btn-secondary btn-md">Cancel</button>
+            <button onClick={confirmDelete} disabled={deleting} className="btn btn-danger btn-md">{deleting ? "Deleting…" : "Delete"}</button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-600">
+          This permanently removes the product from your catalogue. If it already has sales,
+          it will be <strong>hidden</strong> instead so your sales history stays intact.
+        </p>
+      </Modal>
     </div>
   )
 }

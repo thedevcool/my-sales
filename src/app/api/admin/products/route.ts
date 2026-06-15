@@ -107,3 +107,28 @@ export async function PATCH(request: Request) {
   await prisma.productVariant.update({ where: { id }, data })
   return NextResponse.json({ success: true })
 }
+
+export async function DELETE(request: Request) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const { id } = await request.json()
+  if (!id) return NextResponse.json({ error: "Missing product id" }, { status: 400 })
+
+  // A product with sales can't be removed without destroying financial history,
+  // so it's hidden instead. Products with no sales are deleted outright (along
+  // with their stock-movement records).
+  const saleCount = await prisma.sale.count({ where: { variantId: id } })
+  if (saleCount > 0) {
+    await prisma.productVariant.update({ where: { id }, data: { isActive: false } })
+    return NextResponse.json({ softDeleted: true })
+  }
+
+  await prisma.$transaction([
+    prisma.stockAdjustment.deleteMany({ where: { variantId: id } }),
+    prisma.purchase.deleteMany({ where: { variantId: id } }),
+    prisma.productVariant.delete({ where: { id } }),
+  ])
+  return NextResponse.json({ deleted: true })
+}
